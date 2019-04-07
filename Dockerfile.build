@@ -39,19 +39,20 @@ RUN cd /opt/ffmpeg \
 
 ENV LD_LIBRARY_PATH="/opt/vc/lib:${LD_LIBRARY_PATH}"
 
-RUN mkdir /tmp/ffmpeg /ffmpeg
-ADD install.sh /tmp/ffmpeg
-
 RUN cd /opt/ffmpeg \
 	&& checkinstall -y \
 			--install=no \
 			--requires "libmp3lame-dev, libass-dev, libx264-dev" \
-			--deldoc --deldesc --delspec \
-	&& cd /tmp/ffmpeg \
+			--deldoc --deldesc --delspec
+
+RUN mkdir /tmp/ffmpeg /ffmpeg
+ADD install.sh /tmp/ffmpeg
+
+RUN  cd /tmp/ffmpeg \
 	&& mv /opt/ffmpeg/ffmpeg*.deb ffmpeg.deb \
-	&& tar -czf userland.tar.gz /opt/vc/lib \
+	&& tar -cf userland.tar /opt/vc/lib \
 	&& chmod 755 install.sh \
-	&& cd ../ \
+	&& cd .. \
 	&& tar -cvzf /ffmpeg.tar.gz ffmpeg \
 	&& rm -rf /tmp/ffmpeg
 

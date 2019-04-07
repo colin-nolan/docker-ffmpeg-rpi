@@ -4,7 +4,8 @@ set -euf -o pipefail
 
 scriptDirectory="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-dpkg -i "${scriptDirectory}/ffmpeg.deb"
+tar -xvf "${scriptDirectory}/userland.tar" -C /
 
-tar -xzvf "${scriptDirectory}/userland.tar.gz" /opt/vc/lib
-
+apt-get update
+apt install -y -f "${scriptDirectory}/ffmpeg.deb"
+rm -rf /var/lib/apt/lists/*
