@@ -33,7 +33,8 @@ RUN cd /opt/ffmpeg \
 		--enable-libass \
 		--enable-libmp3lame \
 		--enable-mmal \
-	# TODO: No -j4 on Pi Zero; arch="$(which arch)"; if [[ $arch = "armv6l"]]; then echo "pi0";fi
+	# TODO: No -j4 on Pi Zero
+	# arch="$(which arch)"; if [[ $arch = "armv6l"]]; then echo "pi0";fi
 	&& make -j4 \
 	&& make install
 
