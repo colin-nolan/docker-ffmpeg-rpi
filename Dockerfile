@@ -55,15 +55,15 @@ RUN mv /usr/local/src/ffmpeg/ffmpeg*.deb ffmpeg.deb \
 
 FROM ${BASE_IMAGE}
 
-COPY --from=ffmpeg-builder /ffmpeg.tar.gz /opt/ffmpeg.tar.gz
+COPY --from=ffmpeg-builder /ffmpeg.tar.gz /usr/local/src/ffmpeg
 
-RUN tar -xzvf /opt/ffmpeg.tar.gz -C /opt \
-    && cd /opt/ffmpeg \
-    && tar -xvf userland.tar -C /
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends -f /opt/ffmpeg/ffmpeg.deb \
-    && rm -rf /var/lib/apt/lists/
+RUN cd /usr/local/src/ffmpeg \
+    && tar -xzvf ffmpeg.tar.gz \
+    && tar -xvf userland.tar -C / \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends -f ffmpeg.deb \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/src/ffmpeg
 
 ENV LD_LIBRARY_PATH="/opt/vc/lib:${LD_LIBRARY_PATH}"
 
