@@ -41,7 +41,7 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
         --enable-libass \
         --enable-libmp3lame \
         --enable-mmal \
-    && make $(if [[ "$(arch)" != "armv6l" ]]; then echo "-j4"; fi) \
+    && make -j $(nproc) \
     && make install
 
 WORKDIR /usr/local/src/ffmpeg
