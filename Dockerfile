@@ -1,5 +1,10 @@
-ARG BASE_IMAGE=debian:buster-backports
+# https://www.balena.io/docs/reference/base-images/base-images-ref/
+ARG BASE_IMAGE=balenalib/raspberrypi3-debian
 
+
+##################################################
+# FFmpeg builder
+##################################################
 FROM ${BASE_IMAGE} AS ffmpeg-builder
 
 RUN apt-get update \
@@ -18,15 +23,15 @@ RUN apt-get update \
 
 WORKDIR /usr/local/src
 
-RUN git clone --depth 1 --branch master https://github.com/raspberrypi/userland.git userland \
-    && cd userland \
-    && ./buildme \
-    && echo /opt/vc/lib > /etc/ld.so.conf.d/00-vmcs.conf
+# We are assuming that the headers in the master match the libs
+RUN git clone --depth 1 --branch master --depth=1 https://github.com/raspberrypi/firmware.git firmware
 
 RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg \
     && cd ffmpeg \
-    && ./configure \
-        --arch=armel \
+    && CFLAGS="-I ../firmware/opt/vc/include/IL -I ../firmware/opt/vc/include" \
+       ./configure \
+        --extra-ldflags="-latomic" \
+        --arch=armhf \
         --target-os=linux \
         --enable-gpl \
         --enable-omx --enable-omx-rpi \
@@ -41,31 +46,23 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
 
 WORKDIR /usr/local/src/ffmpeg
 
-ENV LD_LIBRARY_PATH="/opt/vc/lib:${LD_LIBRARY_PATH}"
 RUN checkinstall -y \
         --install=no \
-        --requires "libmp3lame-dev, libass-dev, libx264-dev" \
+        --requires "libmp3lame-dev, libass-dev, libx264-dev, libatomic1" \
         --deldoc --deldesc --delspec
 
-RUN mv /usr/local/src/ffmpeg/ffmpeg*.deb ffmpeg.deb \
-    && tar -cf userland.tar /opt/vc/lib \
-    && cd .. \
-    && tar -cvzf /ffmpeg.tar.gz ffmpeg
 
-
+##################################################
+# Production image
+##################################################
 FROM ${BASE_IMAGE}
 
-COPY --from=ffmpeg-builder /ffmpeg.tar.gz /usr/local/src/ffmpeg
+COPY --from=ffmpeg-builder /usr/local/src/ffmpeg/ffmpeg*.deb /tmp/ffmpeg.deb
 
-RUN cd /usr/local/src/ffmpeg \
-    && tar -xzvf ffmpeg.tar.gz \
-    && tar -xvf userland.tar -C / \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends -f ffmpeg.deb \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends -f /tmp/ffmpeg.deb ffmpeg.deb \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /usr/local/src/ffmpeg
-
-ENV LD_LIBRARY_PATH="/opt/vc/lib:${LD_LIBRARY_PATH}"
+    && rm -rf /tmp/ffmpeg.deb
 
 entrypoint ["ffmpeg"]
 
