@@ -1,3 +1,4 @@
+# Note: the pi3 image works for pi4 also (all Balenalib pi4 images are 64bit)
 # https://www.balena.io/docs/reference/base-images/base-images-ref/
 ARG BASE_IMAGE=balenalib/raspberrypi3-debian
 
@@ -18,6 +19,7 @@ RUN apt-get update \
         libmp3lame-dev \
         libomxil-bellagio-dev \
         libx264-dev \
+        libx265-dev \
         sudo \
     && rm -rf /var/lib/apt/lists/*
 
@@ -34,13 +36,16 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
         --arch=armhf \
         --target-os=linux \
         --enable-gpl \
-        --enable-omx --enable-omx-rpi \
-        --enable-nonfree \
-        --enable-libx264 \
-        --enable-libfreetype \
+        --enable-hardcoded-tables \
         --enable-libass \
+        --enable-libfreetype \
         --enable-libmp3lame \
+        --enable-libx264 \
+        --enable-libx265 \
         --enable-mmal \
+        --enable-nonfree \
+        --enable-omx --enable-omx-rpi \
+        --enable-pthreads \
     && make -j $(nproc) \
     && make install
 
@@ -48,7 +53,7 @@ WORKDIR /usr/local/src/ffmpeg
 
 RUN checkinstall -y \
         --install=no \
-        --requires "libmp3lame-dev, libass-dev, libx264-dev, libatomic1" \
+        --requires "libmp3lame-dev, libass-dev, libx264-dev, libx265-dev, libatomic1" \
         --deldoc --deldesc --delspec
 
 
