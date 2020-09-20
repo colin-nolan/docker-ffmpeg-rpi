@@ -56,6 +56,8 @@ RUN checkinstall -y \
         --requires "libmp3lame-dev, libass-dev, libx264-dev, libx265-dev, libatomic1" \
         --deldoc --deldesc --delspec
 
+RUN ln -s ffmpeg*.deb ffmpeg.deb
+
 
 ##################################################
 # Production image
