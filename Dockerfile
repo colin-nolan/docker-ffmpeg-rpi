@@ -32,20 +32,20 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
     && cd ffmpeg \
     && CFLAGS="-I ../firmware/opt/vc/include/IL -I ../firmware/opt/vc/include" \
        ./configure \
-        --extra-ldflags="-latomic" \
-        --arch=armhf \
-        --target-os=linux \
-        --enable-gpl \
-        --enable-hardcoded-tables \
-        --enable-libass \
-        --enable-libfreetype \
-        --enable-libmp3lame \
-        --enable-libx264 \
-        --enable-libx265 \
-        --enable-mmal \
-        --enable-nonfree \
-        --enable-omx --enable-omx-rpi \
-        --enable-pthreads \
+           --extra-ldflags="-latomic" \
+           --arch=armhf \
+           --target-os=linux \
+           --enable-gpl \
+           --enable-hardcoded-tables \
+           --enable-libass \
+           --enable-libfreetype \
+           --enable-libmp3lame \
+           --enable-libx264 \
+           --enable-libx265 \
+           --enable-mmal \
+           --enable-nonfree \
+           --enable-omx --enable-omx-rpi \
+           --enable-pthreads \
     && make -j $(nproc) \
     && make install
 
