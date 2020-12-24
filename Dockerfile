@@ -18,6 +18,7 @@ RUN apt-get update \
         libass-dev \
         libmp3lame-dev \
         libomxil-bellagio-dev \
+        libvpx-dev \
         libx264-dev \
         libx265-dev \
         sudo \
@@ -42,6 +43,7 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
            --enable-libmp3lame \
            --enable-libx264 \
            --enable-libx265 \
+           --enable-libvpx \
            --enable-mmal \
            --enable-nonfree \
            --enable-omx --enable-omx-rpi \
@@ -53,7 +55,7 @@ WORKDIR /usr/local/src/ffmpeg
 
 RUN checkinstall -y \
         --install=no \
-        --requires "libmp3lame-dev, libass-dev, libx264-dev, libx265-dev, libatomic1" \
+        --requires "libmp3lame-dev, libass-dev, libvpx-dev, libx264-dev, libx265-dev, libatomic1" \
         --deldoc --deldesc --delspec
 
 RUN ln -s ffmpeg*.deb ffmpeg.deb
@@ -64,7 +66,7 @@ RUN ln -s ffmpeg*.deb ffmpeg.deb
 ##################################################
 FROM ${BASE_IMAGE}
 
-COPY --from=ffmpeg-builder /usr/local/src/ffmpeg/ffmpeg*.deb /tmp/ffmpeg.deb
+COPY --from=ffmpeg-builder /usr/local/src/ffmpeg/ffmpeg.deb /tmp/ffmpeg.deb
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends -f /tmp/ffmpeg.deb ffmpeg.deb \
