@@ -13,10 +13,11 @@ docker build -t colinnolan/ffmpeg-rpi:latest .
 ```
 _Note: this may take several hours on a RPi!_
 
-The base image can be changed by setting the `BASE_IMAGE` build arg. This image must contain compiled copies of the
-[ARM side libraries](https://github.com/raspberrypi/userland) (typically installed in `/opt/vc/lib`).
+The base image can be changed by setting the `BASE_IMAGE` build arg (minimal Ubuntu is default).
 
-FFmpeg is compiled for armhf only (64-bit aarch64 builds of the ARM side libraries are not (officially) supported).
+Note that the ARM side libraries (e.g. mmal) are built and then linked against. According to the
+[userland README](https://github.com/raspberrypi/userland#readme), 64-bit aarch64 builds of the ARM side libraries are
+not (officially) supported.
 
 
 ## Usage

@@ -1,12 +1,41 @@
-# Note: the pi3 image works for pi4 also (all Balenalib pi4 images are 64bit)
-# https://www.balena.io/docs/reference/base-images/base-images-ref/
-ARG BASE_IMAGE=balenalib/raspberrypi3-debian
+ARG BASE_IMAGE=ubuntu
+
+
+##################################################
+# Userland build and setup
+##################################################
+FROM ${BASE_IMAGE} AS userland-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-eufo", "pipefail", "-c"]
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            cmake \
+            git \
+            sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --branch master --depth 1 https://github.com/raspberrypi/userland.git /tmp/userland \
+    && cd /tmp/userland \
+    && ./buildme
+
+
+FROM ${BASE_IMAGE} as base-with-userland
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/vc/lib"
+
+COPY --from=userland-builder /opt/vc/lib /opt/vc/lib
 
 
 ##################################################
 # FFmpeg builder
 ##################################################
-FROM ${BASE_IMAGE} AS ffmpeg-builder
+FROM base-with-userland AS ffmpeg-builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -64,7 +93,7 @@ RUN ln -s ffmpeg*.deb ffmpeg.deb
 ##################################################
 # Production image
 ##################################################
-FROM ${BASE_IMAGE}
+FROM base-with-userland
 
 COPY --from=ffmpeg-builder /usr/local/src/ffmpeg/ffmpeg.deb /tmp/ffmpeg.deb
 
