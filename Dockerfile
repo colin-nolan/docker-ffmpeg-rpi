@@ -19,8 +19,12 @@ RUN apt-get update \
             sudo \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --branch master --depth 1 https://github.com/raspberrypi/userland.git /tmp/userland \
-    && cd /tmp/userland \
+# A pre-compiled copy of userland software (+ closed source binaries) are available at:
+# https://github.com/raspberrypi/firmware
+# However, given the binaries are going to be compiled for 32 bit, it feels like it would be more
+# helpful for those on 64 bit kernels to compile a 64 bit userland
+RUN git clone --branch master --depth 1 https://github.com/raspberrypi/userland.git /usr/local/src/userland \
+    && cd /usr/local/src/userland \
     && ./buildme
 
 
@@ -33,9 +37,9 @@ COPY --from=userland-builder /opt/vc/lib /opt/vc/lib
 
 
 ##################################################
-# FFmpeg builder
+# FFmpeg build
 ##################################################
-FROM base-with-userland AS ffmpeg-builder
+FROM base-with-userland AS ffmpeg-build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -55,12 +59,12 @@ RUN apt-get update \
 
 WORKDIR /usr/local/src
 
-# We are assuming that the headers in the master match the libs
-RUN git clone --depth 1 --branch master --depth=1 https://github.com/raspberrypi/firmware.git firmware
+ENV USERLAND=/usr/local/src/userland
+COPY --from=userland-builder /usr/local/src/userland "${USERLAND}"
 
-RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg \
-    && cd ffmpeg \
-    && CFLAGS="-I ../firmware/opt/vc/include/IL -I ../firmware/opt/vc/include" \
+RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
+RUN cd ffmpeg \
+    && CFLAGS="-I ${USERLAND} -I ${USERLAND}/interface/vmcs_host/khronos/IL -I ${USERLAND}/host_applications/linux/libs/bcm_host/include" \
        ./configure \
            --extra-ldflags="-latomic" \
            --arch=armhf \
@@ -83,24 +87,34 @@ RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffm
 WORKDIR /usr/local/src/ffmpeg
 
 RUN checkinstall -y \
+        --pkgname=rpi-ffmpeg \
         --install=no \
-        --requires "libmp3lame-dev, libass-dev, libvpx-dev, libx264-dev, libx265-dev, libatomic1" \
+        --requires="libmp3lame-dev, libass-dev, libvpx-dev, libx264-dev, libx265-dev, libatomic1" \
         --deldoc --deldesc --delspec
 
-RUN ln -s ffmpeg*.deb ffmpeg.deb
+RUN ln -s rpi-ffmpeg*.deb rpi-ffmpeg.deb
+
+
+##################################################
+# Asset extraction
+##################################################
+FROM scratch as export
+
+COPY --from=ffmpeg-build /usr/local/src/ffmpeg/rpi-ffmpeg.deb /rpi-ffmpeg.deb
+COPY --from=ffmpeg-build /usr/local/src/ffmpeg/ffmpeg /ffmpeg
 
 
 ##################################################
 # Production image
 ##################################################
-FROM base-with-userland
+FROM base-with-userland as production
 
-COPY --from=ffmpeg-builder /usr/local/src/ffmpeg/ffmpeg.deb /tmp/ffmpeg.deb
+COPY --from=ffmpeg-build /usr/local/src/ffmpeg/rpi-ffmpeg.deb /tmp/rpi-ffmpeg.deb
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends -f /tmp/ffmpeg.deb ffmpeg.deb \
+    && apt-get install -y --no-install-recommends -f /tmp/rpi-ffmpeg.deb \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/ffmpeg.deb
+    && rm -rf /tmp/rpi-ffmpeg.deb
 
 entrypoint ["ffmpeg"]
 
