@@ -30,6 +30,8 @@ RUN git clone --branch master --depth 1 https://github.com/raspberrypi/userland.
 
 FROM ${BASE_IMAGE} as base-with-userland
 
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/vc/lib"
 
@@ -45,7 +47,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
-        checkinstall \
         cmake \
         git \
         libass-dev \
@@ -63,8 +64,8 @@ ENV USERLAND=/usr/local/src/userland
 COPY --from=userland-builder /usr/local/src/userland "${USERLAND}"
 
 RUN git clone --branch master --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
-RUN cd ffmpeg \
-    && CFLAGS="-I ${USERLAND} -I ${USERLAND}/interface/vmcs_host/khronos/IL -I ${USERLAND}/host_applications/linux/libs/bcm_host/include" \
+WORKDIR /usr/local/src/ffmpeg
+RUN CFLAGS="-I ${USERLAND} -I ${USERLAND}/interface/vmcs_host/khronos/IL -I ${USERLAND}/host_applications/linux/libs/bcm_host/include" \
        ./configure \
            --extra-ldflags="-latomic" \
            --arch=armhf \
@@ -81,18 +82,44 @@ RUN cd ffmpeg \
            --enable-nonfree \
            --enable-omx --enable-omx-rpi \
            --enable-pthreads \
+    && make -j $(nproc)
+
+RUN echo "libmp3lame-dev, libass-dev, libvpx-dev, libx264-dev, libx265-dev, libatomic1, libraspberrypi-dev" > apt-requirements.txt
+
+
+##################################################
+# Debian package build
+##################################################
+FROM ffmpeg-build as deb-build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        file \
+        gettext \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/local/src
+# Package for checkinstall was not available on Debian (Buster) so building
+RUN git clone http://checkinstall.izto.org/checkinstall.git \
+    && cd checkinstall \
     && make -j $(nproc) \
     && make install
 
 WORKDIR /usr/local/src/ffmpeg
+RUN make install
 
 RUN checkinstall -y \
+        --type=debian \
         --pkgname=rpi-ffmpeg \
+        --pkglicense=non-free \
         --install=no \
-        --requires="libmp3lame-dev, libass-dev, libvpx-dev, libx264-dev, libx265-dev, libatomic1" \
+        --gzman=yes \
+        --requires="$(cat apt-requirements.txt)" \
+        --conflicts=ffmpeg \
+        --backup=no \
         --deldoc --deldesc --delspec
 
-RUN ln -s rpi-ffmpeg*.deb rpi-ffmpeg.deb
+RUN mv rpi-ffmpeg*.deb rpi-ffmpeg.deb
 
 
 ##################################################
@@ -100,7 +127,7 @@ RUN ln -s rpi-ffmpeg*.deb rpi-ffmpeg.deb
 ##################################################
 FROM scratch as export
 
-COPY --from=ffmpeg-build /usr/local/src/ffmpeg/rpi-ffmpeg.deb /rpi-ffmpeg.deb
+COPY --from=deb-build /usr/local/src/ffmpeg/rpi-ffmpeg.deb /rpi-ffmpeg.deb
 COPY --from=ffmpeg-build /usr/local/src/ffmpeg/ffmpeg /ffmpeg
 
 
@@ -109,12 +136,16 @@ COPY --from=ffmpeg-build /usr/local/src/ffmpeg/ffmpeg /ffmpeg
 ##################################################
 FROM base-with-userland as production
 
-COPY --from=ffmpeg-build /usr/local/src/ffmpeg/rpi-ffmpeg.deb /tmp/rpi-ffmpeg.deb
+COPY --from=ffmpeg-build /usr/local/src/ffmpeg/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg-build /usr/local/src/ffmpeg/apt-requirements.txt /tmp/apt-requirements.txt
 
+# Not installing libraspberrypi-dev, as we want to use the userland that ffmpeg was compiled against
+# to ensure compatibility
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends -f /tmp/rpi-ffmpeg.deb \
+    && apt-get install -y --no-install-recommends \
+         $(cat /tmp/apt-requirements.txt | sed 's|, |\n|g' | egrep -v '^libraspberrypi-dev$') \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/rpi-ffmpeg.deb
+    && rm /tmp/apt-requirements.txt
 
 entrypoint ["ffmpeg"]
 
