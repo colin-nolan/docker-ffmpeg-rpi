@@ -94,16 +94,10 @@ FROM ffmpeg-build as deb-build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        checkinstall \
         file \
         gettext \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /usr/local/src
-# Package for checkinstall was not available on Debian (Buster) so building
-RUN git clone http://checkinstall.izto.org/checkinstall.git \
-    && cd checkinstall \
-    && make -j $(nproc) \
-    && make install
 
 WORKDIR /usr/local/src/ffmpeg
 RUN make install
